@@ -329,6 +329,121 @@ body{
 
 <style>
 
+.referral-card{
+    background:white;
+    border-radius:22px;
+    padding:18px;
+    box-shadow:0 5px 20px rgba(31,91,140,.08);
+}
+
+.referral-hero{
+    background:linear-gradient(135deg,#18a9ff,#0877e8);
+    color:white;
+    border-radius:20px;
+    padding:20px;
+    text-align:center;
+}
+
+.referral-hero .ref-icon{
+    font-size:42px;
+    margin-bottom:8px;
+}
+
+.referral-hero h3{
+    font-size:21px;
+    margin-bottom:6px;
+}
+
+.referral-hero p{
+    font-size:13px;
+    opacity:.9;
+}
+
+.referral-stats{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    margin-top:14px;
+}
+
+.ref-stat{
+    background:#f4f9ff;
+    border-radius:16px;
+    padding:15px;
+    text-align:center;
+}
+
+.ref-stat b{
+    display:block;
+    font-size:22px;
+    color:#0877e8;
+}
+
+.ref-stat small{
+    color:#7b8798;
+    font-size:11px;
+}
+
+.referral-link-box{
+    margin-top:15px;
+    background:#f4f9ff;
+    border-radius:16px;
+    padding:12px;
+}
+
+.referral-link-box small{
+    display:block;
+    color:#7b8798;
+    margin-bottom:7px;
+}
+
+.referral-link{
+    width:100%;
+    border:1px solid #dcecff;
+    background:white;
+    border-radius:10px;
+    padding:11px;
+    font-size:11px;
+    color:#3d4c63;
+    outline:none;
+}
+
+.referral-actions{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:9px;
+    margin-top:10px;
+}
+
+.ref-btn{
+    border:0;
+    padding:12px;
+    border-radius:12px;
+    color:white;
+    font-weight:bold;
+    font-size:13px;
+}
+
+.copy-btn{
+    background:#16c978;
+}
+
+.share-btn{
+    background:#0877e8;
+}
+
+.referral-note{
+    margin-top:14px;
+    background:#fff8df;
+    border-radius:14px;
+    padding:12px;
+    color:#765d00;
+    font-size:12px;
+    line-height:1.5;
+}
+
+
+
 .task-card{
     background:#ffffff;
     border-radius:18px;
@@ -526,6 +641,81 @@ Start Mining
 
 
 
+
+
+<section id="referralScreen" class="section" style="display:none;">
+
+<div class="section-title">
+    <h3>👥 Referral</h3>
+</div>
+
+<div class="referral-card">
+
+    <div class="referral-hero">
+
+        <div class="ref-icon">🎁</div>
+
+        <h3>Invite Friends & Earn!</h3>
+
+        <p>
+            Invite your friends and earn
+            <b>5 RAKI</b> for every successful referral.
+        </p>
+
+    </div>
+
+    <div class="referral-stats">
+
+        <div class="ref-stat">
+            <b id="referralCount">0</b>
+            <small>Total Friends</small>
+        </div>
+
+        <div class="ref-stat">
+            <b id="referralEarned">0</b>
+            <small>RAKI Earned</small>
+        </div>
+
+    </div>
+
+    <div class="referral-link-box">
+
+        <small>Your Referral Link</small>
+
+        <input
+            id="referralLink"
+            class="referral-link"
+            type="text"
+            readonly
+            value="Loading..."
+        >
+
+        <div class="referral-actions">
+
+            <button
+                class="ref-btn copy-btn"
+                onclick="copyReferralLink()">
+                📋 Copy
+            </button>
+
+            <button
+                class="ref-btn share-btn"
+                onclick="shareReferralLink()">
+                📤 Share
+            </button>
+
+        </div>
+
+    </div>
+
+    <div class="referral-note">
+        💡 Your friend must open the Mini App using your referral
+        link to count as a referral.
+    </div>
+
+</div>
+
+</section>
 
 
 <section id="taskScreen" class="section" style="display:none;">
@@ -1052,6 +1242,200 @@ async function claimTask(taskId, link){
 
 
 // =========================
+// REFERRAL SYSTEM
+// =========================
+
+const referralScreen =
+document.getElementById("referralScreen");
+
+const referralLinkInput =
+document.getElementById("referralLink");
+
+const referralCount =
+document.getElementById("referralCount");
+
+const referralEarned =
+document.getElementById("referralEarned");
+
+const BOT_USERNAME = "rakitokenbot";
+
+
+// Telegram startapp referral ID
+function getReferralId(){
+
+    const startParam =
+    tg.initDataUnsafe?.start_param || "";
+
+    if(startParam.startsWith("ref_")){
+
+        const id =
+        startParam.replace("ref_","");
+
+        const number =
+        Number(id);
+
+        if(Number.isInteger(number) && number > 0){
+            return number;
+        }
+
+    }
+
+    return null;
+}
+
+
+// Create personal referral link
+function getReferralLink(){
+
+    if(!tgUser){
+        return "";
+    }
+
+    return (
+        "https://t.me/" +
+        BOT_USERNAME +
+        "?startapp=ref_" +
+        tgUser.id
+    );
+
+}
+
+
+// Load referral data
+async function loadReferral(){
+
+    if(!tgUser){
+        return;
+    }
+
+    try{
+
+        const response =
+        await fetch(
+            API_URL +
+            "/api/referral/" +
+            tgUser.id +
+            "?t=" +
+            Date.now()
+        );
+
+        const data =
+        await response.json();
+
+        if(data.success){
+
+            referralCount.textContent =
+            Number(data.total_referrals || 0);
+
+            referralEarned.textContent =
+            Number(data.total_earned || 0)
+            .toFixed(2);
+
+        }
+
+        referralLinkInput.value =
+        getReferralLink();
+
+    }catch(error){
+
+        console.error(
+            "Referral error:",
+            error
+        );
+
+        referralLinkInput.value =
+        getReferralLink();
+
+    }
+
+}
+
+
+// Copy referral link
+async function copyReferralLink(){
+
+    const link =
+    getReferralLink();
+
+    if(!link){
+        return;
+    }
+
+    try{
+
+        await navigator.clipboard.writeText(link);
+
+        tg.showPopup?.({
+
+            title:"Copied! 📋",
+
+            message:
+            "Referral link copied successfully.",
+
+            buttons:[
+                {
+                    id:"ok",
+                    type:"ok"
+                }
+            ]
+
+        });
+
+    }catch(error){
+
+        referralLinkInput.select();
+
+        document.execCommand("copy");
+
+        alert(
+            "Referral link copied! 📋"
+        );
+
+    }
+
+}
+
+
+// Share referral link
+function shareReferralLink(){
+
+    const link =
+    getReferralLink();
+
+    if(!link){
+        return;
+    }
+
+    const text =
+    "🎁 Join Raki Token and start earning RAKI!\n\n" +
+    "Use my referral link and get started 🚀";
+
+    const shareUrl =
+    "https://t.me/share/url?url=" +
+    encodeURIComponent(link) +
+    "&text=" +
+    encodeURIComponent(text);
+
+    try{
+
+        tg.openTelegramLink(
+            shareUrl
+        );
+
+    }catch(error){
+
+        window.open(
+            shareUrl,
+            "_blank"
+        );
+
+    }
+
+}
+
+
+
+// =========================
 // TASK NAVIGATION
 // =========================
 
@@ -1091,9 +1475,55 @@ function openHomePage(){
     miningSection.style.display = "block";
     homeStatus.style.display = "block";
 
-    // Hide Task content
+    // Hide other pages
     taskScreen.style.display = "none";
+    referralScreen.style.display = "none";
 }
+
+
+// =========================
+// Referral Navigation
+// =========================
+
+function openReferralPage(){
+
+    // Hide Home content
+    homeBalance.style.display = "none";
+    quickMenu.style.display = "none";
+    miningSection.style.display = "none";
+    homeStatus.style.display = "none";
+
+    // Hide Tasks
+    taskScreen.style.display = "none";
+
+    // Show Referral
+    referralScreen.style.display = "block";
+
+    loadReferral();
+}
+
+
+// Quick Referral button
+if(quickItems.length > 2){
+
+    quickItems[2].addEventListener(
+        "click",
+        openReferralPage
+    );
+
+}
+
+
+// Bottom Referral button
+if(navItems.length > 3){
+
+    navItems[3].addEventListener(
+        "click",
+        openReferralPage
+    );
+
+}
+
 
 
 // Quick Tasks button
