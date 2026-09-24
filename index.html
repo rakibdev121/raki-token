@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport"
+content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+
+<title>Raki Token</title>
+
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Arial,sans-serif;
+}
+
+body{
+    background:#eef8ff;
+    color:#172033;
+    padding-bottom:80px;
+}
+
+.app{
+    max-width:480px;
+    margin:auto;
+}
+
+.header{
+    background:linear-gradient(135deg,#18a9ff,#0877e8);
+    color:white;
+    padding:18px 16px 22px;
+    border-radius:0 0 28px 28px;
+}
+
+.header-top{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+}
+
+.logo{
+    display:flex;
+    align-items:center;
+    gap:10px;
+}
+
+.logo-icon{
+    width:44px;
+    height:44px;
+    border-radius:14px;
+    background:white;
+    color:#168be8;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:25px;
+    font-weight:bold;
+}
+
+.logo h1{
+    font-size:21px;
+}
+
+.logo p{
+    font-size:11px;
+    opacity:.85;
+}
+
+.user-card{
+    margin-top:18px;
+    background:rgba(255,255,255,.18);
+    border:1px solid rgba(255,255,255,.25);
+    padding:12px;
+    border-radius:18px;
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+
+.avatar{
+    width:48px;
+    height:48px;
+    border-radius:50%;
+    background:white;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:25px;
+}
+
+.user-info{
+    flex:1;
+}
+
+.user-info h3{
+    font-size:16px;
+}
+
+.user-info p{
+    font-size:11px;
+    opacity:.85;
+    margin-top:4px;
+}
+
+.level{
+    background:white;
+    color:#0877e8;
+    padding:5px 9px;
+    border-radius:20px;
+    font-size:11px;
+    font-weight:bold;
+}
+
+.content{
+    padding:16px;
+}
+
+.balance{
+    background:white;
+    border-radius:22px;
+    padding:18px;
+    box-shadow:0 5px 20px rgba(31,91,140,.08);
+}
+
+.balance-top{
+    display:flex;
+    align-items:center;
+    gap:13px;
+}
+
+.token{
+    width:55px;
+    height:55px;
+    border-radius:50%;
+    background:linear-gradient(135deg,#ffd94a,#ff9f1a);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:28px;
+    font-weight:bold;
+    color:white;
+}
+
+.balance-info{
+    flex:1;
+}
+
+.balance-info small{
+    color:#7b8798;
+}
+
+.balance-info h2{
+    font-size:25px;
+    margin-top:3px;
+}
+
+.withdraw{
+    border:0;
+    background:#16c978;
+    color:white;
+    padding:11px 15px;
+    border-radius:12px;
+    font-weight:bold;
+}
+
+.quick{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:9px;
+    margin-top:15px;
+}
+
+.quick-item{
+    background:white;
+    border-radius:17px;
+    padding:13px 5px;
+    text-align:center;
+    box-shadow:0 4px 15px rgba(31,91,140,.06);
+}
+
+.quick-icon{
+    font-size:25px;
+    margin-bottom:7px;
+}
+
+.quick-item b{
+    display:block;
+    font-size:12px;
+}
+
+.quick-item small{
+    color:#8995a7;
+    font-size:9px;
+}
+
+.section{
+    margin-top:17px;
+}
+
+.section-title{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:10px;
+}
+
+.section-title h3{
+    font-size:17px;
+}
+
+.mining{
+    background:white;
+    border-radius:20px;
+    padding:16px;
+    box-shadow:0 5px 18px rgba(31,91,140,.07);
+}
+
+.mining-head{
+    display:flex;
+    align-items:center;
+    gap:10px;
+}
+
+.pickaxe{
+    font-size:28px;
+}
+
+.mining-head div{
+    flex:1;
+}
+
+.running{
+    color:#14ba70;
+    font-size:11px;
+    margin-top:4px;
+}
+
+.timer{
+    font-size:11px;
+    color:#777;
+}
+
+.progress{
+    height:10px;
+    background:#e5edf4;
+    border-radius:20px;
+    overflow:hidden;
+    margin:15px 0 8px;
+}
+
+.progress-bar{
+    width:0%;
+    height:100%;
+    background:linear-gradient(90deg,#1dcc79,#54d8a0);
+    border-radius:20px;
+}
+
+.mining-bottom{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+.rate{
+    font-size:12px;
+    color:#12a866;
+    font-weight:bold;
+}
+
+.boost{
+    border:0;
+    background:#168ff0;
+    color:white;
+    padding:9px 15px;
+    border-radius:10px;
+    font-weight:bold;
+}
+
+.start{
+    border:0;
+    background:#16c978;
+    color:white;
+    padding:9px 13px;
+    border-radius:10px;
+    font-weight:bold;
+}
+
+.status{
+    text-align:center;
+    margin-top:12px;
+    font-size:12px;
+    color:#777;
+}
+
+.bottom-nav{
+    position:fixed;
+    bottom:0;
+    left:50%;
+    transform:translateX(-50%);
+    width:100%;
+    max-width:480px;
+    height:68px;
+    background:white;
+    border-top:1px solid #e8edf2;
+    display:flex;
+    justify-content:space-around;
+    align-items:center;
+    z-index:99;
+}
+
+.nav-item{
+    text-align:center;
+    color:#8190a2;
+    font-size:10px;
+}
+
+.nav-icon{
+    font-size:22px;
+    margin-bottom:3px;
+}
+
+.nav-item.active{
+    color:#0987ed;
+    font-weight:bold;
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+<header class="header">
+
+<div class="header-top">
+
+<div class="logo">
+
+<div class="logo-icon">R</div>
+
+<div>
+<h1>Raki Token</h1>
+<p>Mine • Task • Earn • Withdraw</p>
+</div>
+
+</div>
+
+<div>☰</div>
+
+</div>
+
+<div class="user-card">
+
+<div class="avatar">👨🏻</div>
+
+<div class="user-info">
+
+<h3 id="userName">Loading...</h3>
+
+<p>
+User ID:
+<span id="userId">Loading...</span>
+</p>
+
+</div>
+
+<div class="level">
+Level 1
+</div>
+
+</div>
+
+</header>
+
+
+<main class="content">
+
+<div class="balance">
+
+<div class="balance-top">
+
+<div class="token">R</div>
+
+<div class="balance-info">
+
+<small>Your Balance</small>
+
+<h2 id="balance">
+0 RAKI
+</h2>
+
+</div>
+
+<button class="withdraw">
+Withdraw
+</button>
+
+</div>
+
+</div>
+
+
+<div class="quick">
+
+<div class="quick-item">
+<div class="quick-icon">⛏️</div>
+<b>Mining</b>
+<small>Earn RAKI</small>
+</div>
+
+<div class="quick-item">
+<div class="quick-icon">✅</div>
+<b>Tasks</b>
+<small>Do & Earn</small>
+</div>
+
+<div class="quick-item">
+<div class="quick-icon">👥</div>
+<b>Referral</b>
+<small>Get Bonus</small>
+</div>
+
+<div class="quick-item">
+<div class="quick-icon">👛</div>
+<b>Wallet</b>
+<small>History</small>
+</div>
+
+</div>
+
+
+<section class="section">
+
+<div class="section-title">
+
+<h3>⛏️ Daily Mining</h3>
+
+</div>
+
+<div class="mining">
+
+<div class="mining-head">
+
+<div class="pickaxe">⛏️</div>
+
+<div>
+<b>Mining</b>
+<div id="miningStatus" class="running">
+● Stopped
+</div>
+</div>
+
+<div id="timer" class="timer">
+00:00:00
+</div>
+
+</div>
+
+<div class="progress">
+
+<div id="progressBar" class="progress-bar"></div>
+
+</div>
+
+<div class="mining-bottom">
+
+<div class="rate">
++0.0045 RAKI / sec
+</div>
+
+<button id="miningButton" class="boost">
+Start Mining
+</button>
+
+</div>
+
+</div>
+
+</section>
+
+
+<div id="status" class="status">
+Connecting to Raki Token server...
+</div>
+
+</main>
+
+
+<nav class="bottom-nav">
+
+<div class="nav-item active">
+<div class="nav-icon">🏠</div>
+Home
+</div>
+
+<div class="nav-item">
+<div class="nav-icon">✅</div>
+Tasks
+</div>
+
+<div class="nav-item">
+<div class="nav-icon">⛏️</div>
+Mining
+</div>
+
+<div class="nav-item">
+<div class="nav-icon">👥</div>
+Referral
+</div>
+
+<div class="nav-item">
+<div class="nav-icon">👤</div>
+Profile
+</div>
+
+</nav>
+
+</div>
+
+
+<script>
+
+// =========================
+// Telegram
+// =========================
+
+const tg = window.Telegram.WebApp;
+
+tg.ready();
+tg.expand();
+
+
+// =========================
+// Backend API
+// =========================
+
+const API_URL =
+"https://scanner-challenged-mainland-survey.trycloudflare.com";
+
+
+// =========================
+// Telegram User
+// =========================
+
+const tgUser =
+tg.initDataUnsafe?.user;
+
+
+// =========================
+// Elements
+// =========================
+
+const userName =
+document.getElementById("userName");
+
+const userId =
+document.getElementById("userId");
+
+const balance =
+document.getElementById("balance");
+
+const status =
+document.getElementById("status");
+
+const miningStatus =
+document.getElementById("miningStatus");
+
+const miningButton =
+document.getElementById("miningButton");
+
+const progressBar =
+document.getElementById("progressBar");
+
+
+// =========================
+// Load User
+// =========================
+
+async function loadUser(){
+
+    if(!tgUser){
+
+        status.textContent =
+        "Open this app from Telegram.";
+
+        return;
+    }
+
+    userName.textContent =
+    tgUser.first_name || "User";
+
+    userId.textContent =
+    tgUser.id;
+
+
+    try{
+
+        // Check user
+
+        let response =
+        await fetch(
+            API_URL +
+            "/api/user/" +
+            tgUser.id
+        );
+
+
+        // User doesn't exist
+
+        if(response.status === 404){
+
+            response =
+            await fetch(
+                API_URL + "/api/user",
+                {
+                    method:"POST",
+
+                    headers:{
+                        "Content-Type":
+                        "application/json"
+                    },
+
+                    body:JSON.stringify({
+
+                        id:tgUser.id,
+
+                        username:
+                        tgUser.username ||
+                        tgUser.first_name ||
+                        "User"
+
+                    })
+                }
+            );
+
+        }
+
+
+        const data =
+        await response.json();
+
+
+        if(data.user){
+
+            showUser(data.user);
+
+        }else{
+
+            showUser(data);
+
+        }
+
+
+        status.textContent =
+        "Connected to Raki Token server ✅";
+
+    }catch(error){
+
+        console.error(error);
+
+        status.textContent =
+        "Server connection failed ❌";
+
+    }
+
+}
+
+
+// =========================
+// Show User
+// =========================
+
+function showUser(user){
+
+    balance.textContent =
+    Number(user.balance || 0)
+    .toFixed(4) +
+    " RAKI";
+
+
+    if(Number(user.mining) === 1){
+
+        miningStatus.textContent =
+        "● Running";
+
+        miningButton.textContent =
+        "Stop Mining";
+
+        progressBar.style.width =
+        "60%";
+
+    }else{
+
+        miningStatus.textContent =
+        "● Stopped";
+
+        miningButton.textContent =
+        "Start Mining";
+
+        progressBar.style.width =
+        "0%";
+
+    }
+
+}
+
+
+// =========================
+// Mining Button
+// =========================
+
+miningButton.addEventListener(
+"click",
+async function(){
+
+    if(!tgUser){
+
+        return;
+    }
+
+
+    const isMining =
+    miningButton.textContent ===
+    "Stop Mining";
+
+
+    const endpoint =
+    isMining
+    ? "/api/mining/stop"
+    : "/api/mining/start";
+
+
+    try{
+
+        const response =
+        await fetch(
+            API_URL + endpoint,
+            {
+                method:"POST",
+
+                headers:{
+                    "Content-Type":
+                    "application/json"
+                },
+
+                body:JSON.stringify({
+
+                    user_id:tgUser.id
+
+                })
+            }
+        );
+
+
+        const data =
+        await response.json();
+
+
+        if(data.success){
+
+            loadUser();
+
+        }
+
+    }catch(error){
+
+        console.error(error);
+
+        status.textContent =
+        "Mining request failed ❌";
+
+    }
+
+});
+
+
+// =========================
+// Start
+// =========================
+
+loadUser();
+
+</script>
+
+</body>
+</html>
