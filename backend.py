@@ -56,6 +56,78 @@ def init_db():
         )
     """)
 
+    # =========================
+    # TASKS
+    # =========================
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS tasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            description TEXT,
+            reward REAL DEFAULT 0,
+            link TEXT,
+            active INTEGER DEFAULT 1,
+            created_at INTEGER
+        )
+    """)
+
+    # =========================
+    # USER TASKS
+    # =========================
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS user_tasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            task_id INTEGER,
+            claimed_at INTEGER,
+            UNIQUE(user_id, task_id)
+        )
+    """)
+
+    # Demo tasks automatically create হবে
+    task_count = conn.execute(
+        "SELECT COUNT(*) FROM tasks"
+    ).fetchone()[0]
+
+    if task_count == 0:
+
+        now = int(time.time())
+
+        demo_tasks = [
+            (
+                "Join Telegram Channel",
+                "Join our official Telegram channel",
+                5.0,
+                "https://t.me/",
+                1,
+                now
+            ),
+            (
+                "Watch YouTube Video",
+                "Watch the Raki Token video",
+                10.0,
+                "https://youtube.com/",
+                1,
+                now
+            ),
+            (
+                "Visit Website",
+                "Visit Raki Token website",
+                3.0,
+                "https://rakibdev121.github.io/raki-token/",
+                1,
+                now
+            )
+        ]
+
+        conn.executemany("""
+            INSERT INTO tasks
+            (title, description, reward, link, active, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, demo_tasks)
+
     # Existing database হলে missing column add করার চেষ্টা
     columns = [
         ("mining_started_at", "INTEGER"),
@@ -136,6 +208,152 @@ def update_mining(user_id):
     conn.close()
 
     return user
+
+
+# =========================
+# TASK API
+# =========================
+
+@app.route("/api/tasks/<int:user_id>", methods=["GET"])
+def get_tasks(user_id):
+
+    conn = db()
+
+    tasks = conn.execute("""
+        SELECT
+            tasks.id,
+            tasks.title,
+            tasks.description,
+            tasks.reward,
+            tasks.link,
+            tasks.active,
+            CASE
+                WHEN user_tasks.id IS NOT NULL THEN 1
+                ELSE 0
+            END AS claimed
+        FROM tasks
+        LEFT JOIN user_tasks
+        ON tasks.id = user_tasks.task_id
+        AND user_tasks.user_id = ?
+        WHERE tasks.active = 1
+        ORDER BY tasks.id ASC
+    """, (user_id,)).fetchall()
+
+    conn.close()
+
+    return jsonify({
+        "success": True,
+        "tasks": [dict(task) for task in tasks]
+    })
+
+
+@app.route("/api/tasks/claim", methods=["POST"])
+def claim_task():
+
+    data = request.get_json() or {}
+
+    user_id = data.get("user_id")
+    task_id = data.get("task_id")
+
+    if not user_id or not task_id:
+        return jsonify({
+            "success": False,
+            "error": "user_id and task_id required"
+        }), 400
+
+    conn = db()
+
+    user = conn.execute(
+        "SELECT * FROM users WHERE id=?",
+        (user_id,)
+    ).fetchone()
+
+    if not user:
+        conn.close()
+
+        return jsonify({
+            "success": False,
+            "error": "User not found"
+        }), 404
+
+    task = conn.execute(
+        "SELECT * FROM tasks WHERE id=? AND active=1",
+        (task_id,)
+    ).fetchone()
+
+    if not task:
+        conn.close()
+
+        return jsonify({
+            "success": False,
+            "error": "Task not found"
+        }), 404
+
+    already_claimed = conn.execute("""
+        SELECT id
+        FROM user_tasks
+        WHERE user_id=? AND task_id=?
+    """, (
+        user_id,
+        task_id
+    )).fetchone()
+
+    if already_claimed:
+        conn.close()
+
+        return jsonify({
+            "success": False,
+            "error": "Task already claimed"
+        }), 400
+
+    now = int(time.time())
+
+    # Task reward
+    conn.execute("""
+        UPDATE users
+        SET balance = balance + ?
+        WHERE id=?
+    """, (
+        task["reward"],
+        user_id
+    ))
+
+    conn.execute("""
+        INSERT INTO user_tasks
+        (user_id, task_id, claimed_at)
+        VALUES (?, ?, ?)
+    """, (
+        user_id,
+        task_id,
+        now
+    ))
+
+    conn.execute("""
+        INSERT INTO transactions
+        (user_id, type, amount, created_at)
+        VALUES (?, ?, ?, ?)
+    """, (
+        user_id,
+        "task_reward",
+        task["reward"],
+        now
+    ))
+
+    conn.commit()
+
+    new_balance = conn.execute(
+        "SELECT balance FROM users WHERE id=?",
+        (user_id,)
+    ).fetchone()["balance"]
+
+    conn.close()
+
+    return jsonify({
+        "success": True,
+        "message": "Task completed",
+        "reward": task["reward"],
+        "balance": new_balance
+    })
 
 
 # =========================
