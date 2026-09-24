@@ -369,7 +369,7 @@ body{
 }
 
 </style>
-\n</style>
+</style>
 </head>
 
 <body>
@@ -527,7 +527,7 @@ Start Mining
 
 
 
-\n
+
 <section id="taskScreen" class="section" style="display:none;">
 
 <div class="section-title">
@@ -964,7 +964,7 @@ async function claimTask(taskId, link){
 
     const confirmed =
     confirm(
-        "Task complete করার পরে OK চাপুন।\n\nReward claim করবেন?"
+        "Task complete করার পরে OK চাপুন।Reward claim করবেন?"
     );
 
     if(!confirmed){
@@ -1070,13 +1070,13 @@ document.getElementById("status");
 
 function openTaskPage(){
 
-    // Hide Home items
+    // Hide Home content
     homeBalance.style.display = "none";
     quickMenu.style.display = "none";
     miningSection.style.display = "none";
     homeStatus.style.display = "none";
 
-    // Show Tasks
+    // Show Task content
     taskScreen.style.display = "block";
 
     loadTasks();
@@ -1085,13 +1085,13 @@ function openTaskPage(){
 
 function openHomePage(){
 
-    // Show Home items
+    // Show Home content
     homeBalance.style.display = "block";
     quickMenu.style.display = "grid";
     miningSection.style.display = "block";
     homeStatus.style.display = "block";
 
-    // Hide Tasks
+    // Hide Task content
     taskScreen.style.display = "none";
 }
 
