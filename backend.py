@@ -88,6 +88,21 @@ def init_db():
     """)
 
     # =========================
+    # WITHDRAWALS
+    # =========================
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS withdrawals (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            amount REAL NOT NULL,
+            wallet_address TEXT NOT NULL,
+            status TEXT DEFAULT 'pending',
+            created_at INTEGER
+        )
+    """)
+
+    # =========================
     # REFERRALS
     # =========================
 
@@ -402,6 +417,189 @@ def claim_task():
         "reward": task["reward"],
         "balance": new_balance
     })
+
+
+# =========================
+# WITHDRAW
+# =========================
+
+@app.route("/api/withdraw", methods=["POST"])
+def create_withdraw():
+
+    data = request.get_json() or {}
+
+    user_id = data.get("user_id")
+    amount = data.get("amount")
+    wallet_address = str(
+        data.get("wallet_address", "")
+    ).strip()
+
+    if not user_id:
+        return jsonify({
+            "success": False,
+            "error": "User ID required"
+        }), 400
+
+    try:
+        user_id = int(user_id)
+        amount = float(amount)
+    except (TypeError, ValueError):
+        return jsonify({
+            "success": False,
+            "error": "Invalid user or amount"
+        }), 400
+
+    # Minimum withdrawal
+    if amount < 1:
+        return jsonify({
+            "success": False,
+            "error": "Minimum withdrawal is 1 RAKI"
+        }), 400
+
+    # Basic BSC/EVM address validation
+    if not (
+        len(wallet_address) == 42
+        and wallet_address.startswith("0x")
+    ):
+        return jsonify({
+            "success": False,
+            "error": "Invalid BSC wallet address"
+        }), 400
+
+    try:
+        int(wallet_address[2:], 16)
+    except ValueError:
+        return jsonify({
+            "success": False,
+            "error": "Invalid BSC wallet address"
+        }), 400
+
+    conn = db()
+
+    try:
+
+        # Lock database transaction
+        conn.execute("BEGIN IMMEDIATE")
+
+        user = conn.execute(
+            """
+            SELECT balance
+            FROM users
+            WHERE id=?
+            """,
+            (user_id,)
+        ).fetchone()
+
+        if not user:
+            conn.rollback()
+            conn.close()
+
+            return jsonify({
+                "success": False,
+                "error": "User not found"
+            }), 404
+
+        balance = float(user["balance"] or 0)
+
+        if amount > balance:
+            conn.rollback()
+            conn.close()
+
+            return jsonify({
+                "success": False,
+                "error": "Insufficient balance",
+                "balance": round(balance, 6)
+            }), 400
+
+        now = int(time.time())
+
+        # Deduct balance
+        conn.execute(
+            """
+            UPDATE users
+            SET balance = balance - ?
+            WHERE id=?
+            """,
+            (amount, user_id)
+        )
+
+        # Create pending withdrawal
+        cursor = conn.execute(
+            """
+            INSERT INTO withdrawals
+            (
+                user_id,
+                amount,
+                wallet_address,
+                status,
+                created_at
+            )
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                user_id,
+                amount,
+                wallet_address,
+                "pending",
+                now
+            )
+        )
+
+        withdrawal_id = cursor.lastrowid
+
+        # Transaction record
+        conn.execute(
+            """
+            INSERT INTO transactions
+            (
+                user_id,
+                type,
+                amount,
+                created_at
+            )
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                user_id,
+                "withdraw_pending",
+                -amount,
+                now
+            )
+        )
+
+        conn.commit()
+
+        new_balance = conn.execute(
+            """
+            SELECT balance
+            FROM users
+            WHERE id=?
+            """,
+            (user_id,)
+        ).fetchone()["balance"]
+
+        conn.close()
+
+        return jsonify({
+            "success": True,
+            "message": "Withdrawal request submitted",
+            "withdrawal_id": withdrawal_id,
+            "status": "pending",
+            "amount": round(amount, 6),
+            "balance": round(new_balance, 6)
+        })
+
+    except Exception as error:
+
+        conn.rollback()
+        conn.close()
+
+        print("WITHDRAW ERROR:", error)
+
+        return jsonify({
+            "success": False,
+            "error": "Withdrawal request failed"
+        }), 500
 
 
 # =========================
