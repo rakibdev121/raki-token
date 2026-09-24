@@ -1708,10 +1708,60 @@ async function(){
 
 
 // =========================
-// Start
+// Start Raki Token App
 // =========================
 
-loadUser();
+try{
+
+    console.log("RAKI TOKEN APP START");
+
+    if(
+        document.readyState === "loading"
+    ){
+
+        document.addEventListener(
+            "DOMContentLoaded",
+            function(){
+
+                console.log(
+                    "DOM READY - loading user"
+                );
+
+                loadUser();
+
+            },
+            {once:true}
+        );
+
+    }else{
+
+        console.log(
+            "DOM READY - loading user"
+        );
+
+        loadUser();
+
+    }
+
+}catch(error){
+
+    console.error(
+        "APP START ERROR:",
+        error
+    );
+
+    const statusElement =
+    document.getElementById("status");
+
+    if(statusElement){
+
+        statusElement.textContent =
+        "App startup error ❌ " +
+        error.message;
+
+    }
+
+}
 
 </script>
 
