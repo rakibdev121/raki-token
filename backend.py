@@ -10,14 +10,14 @@ CORS(app)
 DB_NAME = "raki.db"
 
 # =========================
-# MINING SETTINGS
+# SETTINGS
 # =========================
 
-# 1 Raki Token প্রতি মিনিটে
 MINING_RATE_PER_MINUTE = 1.0
-
-# Mining start bonus
 START_BONUS = 10.0
+
+# Referral bonus
+REFERRAL_BONUS = 5.0
 
 
 # =========================
@@ -31,7 +31,12 @@ def db():
 
 
 def init_db():
+
     conn = db()
+
+    # =========================
+    # USERS
+    # =========================
 
     conn.execute("""
         CREATE TABLE IF NOT EXISTS users (
@@ -42,9 +47,35 @@ def init_db():
             created_at INTEGER,
             mining_started_at INTEGER,
             last_mining_update INTEGER,
-            start_bonus_received INTEGER DEFAULT 0
+            start_bonus_received INTEGER DEFAULT 0,
+            referrer_id INTEGER
         )
     """)
+
+    # Existing database migration
+    columns = [
+        ("mining_started_at", "INTEGER"),
+        ("last_mining_update", "INTEGER"),
+        ("start_bonus_received", "INTEGER DEFAULT 0"),
+        ("referrer_id", "INTEGER")
+    ]
+
+    existing = [
+        row["name"]
+        for row in conn.execute(
+            "PRAGMA table_info(users)"
+        ).fetchall()
+    ]
+
+    for column, datatype in columns:
+        if column not in existing:
+            conn.execute(
+                f"ALTER TABLE users ADD COLUMN {column} {datatype}"
+            )
+
+    # =========================
+    # TRANSACTIONS
+    # =========================
 
     conn.execute("""
         CREATE TABLE IF NOT EXISTS transactions (
@@ -52,6 +83,20 @@ def init_db():
             user_id INTEGER,
             type TEXT,
             amount REAL,
+            created_at INTEGER
+        )
+    """)
+
+    # =========================
+    # REFERRALS
+    # =========================
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS referrals (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            referrer_id INTEGER NOT NULL,
+            referred_id INTEGER NOT NULL UNIQUE,
+            bonus REAL DEFAULT 0,
             created_at INTEGER
         )
     """)
@@ -86,7 +131,10 @@ def init_db():
         )
     """)
 
-    # Demo tasks automatically create হবে
+    # =========================
+    # DEMO TASKS
+    # =========================
+
     task_count = conn.execute(
         "SELECT COUNT(*) FROM tasks"
     ).fetchone()[0]
@@ -128,24 +176,6 @@ def init_db():
             VALUES (?, ?, ?, ?, ?, ?)
         """, demo_tasks)
 
-    # Existing database হলে missing column add করার চেষ্টা
-    columns = [
-        ("mining_started_at", "INTEGER"),
-        ("last_mining_update", "INTEGER"),
-        ("start_bonus_received", "INTEGER DEFAULT 0")
-    ]
-
-    existing = [
-        row["name"]
-        for row in conn.execute("PRAGMA table_info(users)").fetchall()
-    ]
-
-    for column, datatype in columns:
-        if column not in existing:
-            conn.execute(
-                f"ALTER TABLE users ADD COLUMN {column} {datatype}"
-            )
-
     conn.commit()
     conn.close()
 
@@ -172,7 +202,6 @@ def update_mining(user_id):
         return user
 
     now = int(time.time())
-
     last_update = user["last_mining_update"]
 
     if last_update is None:
@@ -184,12 +213,14 @@ def update_mining(user_id):
         conn.close()
         return user
 
-    # প্রতি মিনিটে 1 token
-    earned = (elapsed_seconds / 60) * MINING_RATE_PER_MINUTE
+    earned = (
+        elapsed_seconds / 60
+    ) * MINING_RATE_PER_MINUTE
 
     conn.execute("""
         UPDATE users
-        SET balance = balance + ?,
+        SET
+            balance = balance + ?,
             last_mining_update = ?
         WHERE id=?
     """, (
@@ -227,17 +258,24 @@ def get_tasks(user_id):
             tasks.reward,
             tasks.link,
             tasks.active,
+
             CASE
                 WHEN user_tasks.id IS NOT NULL THEN 1
                 ELSE 0
             END AS claimed
+
         FROM tasks
+
         LEFT JOIN user_tasks
         ON tasks.id = user_tasks.task_id
         AND user_tasks.user_id = ?
+
         WHERE tasks.active = 1
+
         ORDER BY tasks.id ASC
-    """, (user_id,)).fetchall()
+    """, (
+        user_id,
+    )).fetchall()
 
     conn.close()
 
@@ -246,6 +284,10 @@ def get_tasks(user_id):
         "tasks": [dict(task) for task in tasks]
     })
 
+
+# =========================
+# CLAIM TASK
+# =========================
 
 @app.route("/api/tasks/claim", methods=["POST"])
 def claim_task():
@@ -256,6 +298,7 @@ def claim_task():
     task_id = data.get("task_id")
 
     if not user_id or not task_id:
+
         return jsonify({
             "success": False,
             "error": "user_id and task_id required"
@@ -269,6 +312,7 @@ def claim_task():
     ).fetchone()
 
     if not user:
+
         conn.close()
 
         return jsonify({
@@ -282,6 +326,7 @@ def claim_task():
     ).fetchone()
 
     if not task:
+
         conn.close()
 
         return jsonify({
@@ -299,6 +344,7 @@ def claim_task():
     )).fetchone()
 
     if already_claimed:
+
         conn.close()
 
         return jsonify({
@@ -308,7 +354,7 @@ def claim_task():
 
     now = int(time.time())
 
-    # Task reward
+    # Add reward
     conn.execute("""
         UPDATE users
         SET balance = balance + ?
@@ -318,6 +364,7 @@ def claim_task():
         user_id
     ))
 
+    # Mark task completed
     conn.execute("""
         INSERT INTO user_tasks
         (user_id, task_id, claimed_at)
@@ -328,6 +375,7 @@ def claim_task():
         now
     ))
 
+    # Transaction
     conn.execute("""
         INSERT INTO transactions
         (user_id, type, amount, created_at)
@@ -366,7 +414,7 @@ def home():
     return jsonify({
         "app": "Raki Token API",
         "status": "online",
-        "version": "3.0"
+        "version": "4.0"
     })
 
 
@@ -380,6 +428,7 @@ def get_user(user_id):
     user = update_mining(user_id)
 
     if not user:
+
         return jsonify({
             "error": "User not found"
         }), 404
@@ -389,7 +438,8 @@ def get_user(user_id):
         "username": user["username"],
         "balance": round(user["balance"], 6),
         "mining": user["mining"],
-        "start_bonus_received": user["start_bonus_received"]
+        "start_bonus_received": user["start_bonus_received"],
+        "referrer_id": user["referrer_id"]
     })
 
 
@@ -405,19 +455,41 @@ def create_user():
     user_id = data.get("id")
     username = data.get("username", "")
 
+    # Referral ID
+    referrer_id = data.get("referrer_id")
+
     if not user_id:
+
         return jsonify({
             "error": "User ID required"
         }), 400
 
+    try:
+        user_id = int(user_id)
+    except:
+
+        return jsonify({
+            "error": "Invalid user ID"
+        }), 400
+
+    if referrer_id:
+
+        try:
+            referrer_id = int(referrer_id)
+        except:
+
+            referrer_id = None
+
     conn = db()
 
+    # Check existing user
     existing = conn.execute(
         "SELECT * FROM users WHERE id=?",
         (user_id,)
     ).fetchone()
 
     if existing:
+
         conn.close()
 
         return jsonify({
@@ -426,12 +498,29 @@ def create_user():
                 "id": existing["id"],
                 "username": existing["username"],
                 "balance": existing["balance"],
-                "mining": existing["mining"]
+                "mining": existing["mining"],
+                "referrer_id": existing["referrer_id"]
             }
         })
 
+    # Prevent self referral
+    if referrer_id == user_id:
+        referrer_id = None
+
+    # Check referrer exists
+    if referrer_id:
+
+        referrer = conn.execute(
+            "SELECT id FROM users WHERE id=?",
+            (referrer_id,)
+        ).fetchone()
+
+        if not referrer:
+            referrer_id = None
+
     now = int(time.time())
 
+    # Create user
     conn.execute("""
         INSERT INTO users (
             id,
@@ -441,14 +530,79 @@ def create_user():
             created_at,
             mining_started_at,
             last_mining_update,
-            start_bonus_received
+            start_bonus_received,
+            referrer_id
         )
-        VALUES (?, ?, 0, 0, ?, NULL, NULL, 0)
+        VALUES (?, ?, 0, 0, ?, NULL, NULL, 0, ?)
     """, (
         user_id,
         username,
-        now
+        now,
+        referrer_id
     ))
+
+    # =========================
+    # REFERRAL BONUS
+    # =========================
+
+    referral_bonus = 0
+
+    if referrer_id:
+
+        # Make sure referral does not already exist
+        referral_exists = conn.execute("""
+            SELECT id
+            FROM referrals
+            WHERE referred_id=?
+        """, (
+            user_id,
+        )).fetchone()
+
+        if not referral_exists:
+
+            referral_bonus = REFERRAL_BONUS
+
+            # Give bonus to referrer
+            conn.execute("""
+                UPDATE users
+                SET balance = balance + ?
+                WHERE id=?
+            """, (
+                referral_bonus,
+                referrer_id
+            ))
+
+            # Referral record
+            conn.execute("""
+                INSERT INTO referrals (
+                    referrer_id,
+                    referred_id,
+                    bonus,
+                    created_at
+                )
+                VALUES (?, ?, ?, ?)
+            """, (
+                referrer_id,
+                user_id,
+                referral_bonus,
+                now
+            ))
+
+            # Transaction for referrer
+            conn.execute("""
+                INSERT INTO transactions (
+                    user_id,
+                    type,
+                    amount,
+                    created_at
+                )
+                VALUES (?, ?, ?, ?)
+            """, (
+                referrer_id,
+                "referral_bonus",
+                referral_bonus,
+                now
+            ))
 
     conn.commit()
 
@@ -461,13 +615,77 @@ def create_user():
 
     return jsonify({
         "message": "User created",
+        "referral_bonus": referral_bonus,
         "user": {
             "id": user["id"],
             "username": user["username"],
             "balance": user["balance"],
             "mining": user["mining"],
-            "start_bonus_received": user["start_bonus_received"]
+            "start_bonus_received": user["start_bonus_received"],
+            "referrer_id": user["referrer_id"]
         }
+    })
+
+
+# =========================
+# REFERRAL INFO
+# =========================
+
+@app.route("/api/referral/<int:user_id>", methods=["GET"])
+def referral_info(user_id):
+
+    conn = db()
+
+    user = conn.execute(
+        "SELECT id FROM users WHERE id=?",
+        (user_id,)
+    ).fetchone()
+
+    if not user:
+
+        conn.close()
+
+        return jsonify({
+            "success": False,
+            "error": "User not found"
+        }), 404
+
+    stats = conn.execute("""
+        SELECT
+            COUNT(*) AS total_referrals,
+            COALESCE(SUM(bonus), 0) AS total_earned
+        FROM referrals
+        WHERE referrer_id=?
+    """, (
+        user_id,
+    )).fetchone()
+
+    referrals = conn.execute("""
+        SELECT
+            users.id,
+            users.username,
+            referrals.bonus,
+            referrals.created_at
+        FROM referrals
+
+        JOIN users
+        ON users.id = referrals.referred_id
+
+        WHERE referrals.referrer_id=?
+
+        ORDER BY referrals.id DESC
+    """, (
+        user_id,
+    )).fetchall()
+
+    conn.close()
+
+    return jsonify({
+        "success": True,
+        "bonus_per_referral": REFERRAL_BONUS,
+        "total_referrals": stats["total_referrals"],
+        "total_earned": round(stats["total_earned"], 6),
+        "referrals": [dict(row) for row in referrals]
     })
 
 
@@ -483,6 +701,7 @@ def start_mining():
     user_id = data.get("user_id")
 
     if not user_id:
+
         return jsonify({
             "error": "User ID required"
         }), 400
@@ -495,6 +714,7 @@ def start_mining():
     ).fetchone()
 
     if not user:
+
         conn.close()
 
         return jsonify({
@@ -512,13 +732,9 @@ def start_mining():
         })
 
     now = int(time.time())
-
     bonus = 0
 
-    # =========================
-    # FIRST START BONUS
-    # =========================
-
+    # First start bonus
     if user["start_bonus_received"] == 0:
 
         bonus = START_BONUS
@@ -539,7 +755,6 @@ def start_mining():
             user_id
         ))
 
-        # Transaction record
         conn.execute("""
             INSERT INTO transactions (
                 user_id,
@@ -593,14 +808,15 @@ def stop_mining():
     user_id = data.get("user_id")
 
     if not user_id:
+
         return jsonify({
             "error": "User ID required"
         }), 400
 
-    # First calculate earned mining
     user = update_mining(user_id)
 
     if not user:
+
         return jsonify({
             "error": "User not found"
         }), 404
@@ -657,6 +873,7 @@ def transactions(user_id):
     result = []
 
     for row in rows:
+
         result.append({
             "id": row["id"],
             "type": row["type"],
@@ -675,7 +892,9 @@ init_db()
 
 if __name__ == "__main__":
 
-    port = int(os.environ.get("PORT", 5050))
+    port = int(
+        os.environ.get("PORT", 5050)
+    )
 
     app.run(
         host="0.0.0.0",
