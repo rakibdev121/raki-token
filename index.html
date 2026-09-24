@@ -326,7 +326,50 @@ body{
     color:#0987ed;
     font-weight:bold;
 }
+
+<style>
+
+.task-card{
+    background:#ffffff;
+    border-radius:18px;
+    padding:16px;
+    margin-bottom:12px;
+    box-shadow:0 5px 20px rgba(0,0,0,0.08);
+}
+
+.task-card h4{
+    margin:0 0 6px;
+    font-size:17px;
+}
+
+.task-card p{
+    margin:0 0 10px;
+    color:#777;
+    font-size:13px;
+}
+
+.task-reward{
+    font-weight:bold;
+    color:#0987ed;
+    margin-bottom:10px;
+}
+
+.task-button{
+    width:100%;
+    border:0;
+    border-radius:12px;
+    padding:12px;
+    font-weight:bold;
+    color:white;
+    background:#0987ed;
+}
+
+.task-button.claimed{
+    background:#20b26b;
+}
+
 </style>
+\n</style>
 </head>
 
 <body>
@@ -482,7 +525,27 @@ Start Mining
 </section>
 
 
-<div id="status" class="status">
+
+<!-- =========================
+     TASK SCREEN
+========================= -->
+
+<section id="taskScreen" class="section" style="display:none;">
+
+<div class="section-title">
+<h3>🎁 Earn RAKI</h3>
+</div>
+
+<div id="taskList">
+
+<div style="text-align:center;padding:20px;">
+Loading tasks...
+</div>
+
+</div>
+
+</section>
+\n<div id="status" class="status">
 Connecting to Raki Token server...
 </div>
 
@@ -784,6 +847,268 @@ function showUser(user){
     }
 
 }
+
+
+
+// =========================
+// TASK SYSTEM
+// =========================
+
+const taskScreen =
+document.getElementById("taskScreen");
+
+const taskList =
+document.getElementById("taskList");
+
+async function loadTasks(){
+
+    if(!tgUser){
+        return;
+    }
+
+    try{
+
+        const response =
+        await fetch(
+            API_URL +
+            "/api/tasks/" +
+            tgUser.id +
+            "?t=" +
+            Date.now()
+        );
+
+        const data =
+        await response.json();
+
+        if(!data.success){
+            taskList.innerHTML =
+            "<p>Failed to load tasks ❌</p>";
+            return;
+        }
+
+        taskList.innerHTML = "";
+
+        if(!data.tasks.length){
+
+            taskList.innerHTML =
+            "<p>No tasks available.</p>";
+
+            return;
+        }
+
+        data.tasks.forEach(task => {
+
+            const card =
+            document.createElement("div");
+
+            card.className =
+            "task-card";
+
+            card.innerHTML = `
+                <h4>🎁 ${task.title}</h4>
+
+                <p>${task.description || ""}</p>
+
+                <div class="task-reward">
+                    +${Number(task.reward).toFixed(2)} RAKI
+                </div>
+
+                ${
+                    Number(task.claimed) === 1
+
+                    ? `
+                    <button
+                    class="task-button claimed"
+                    disabled>
+                    ✅ Claimed
+                    </button>
+                    `
+
+                    : `
+                    <button
+                    class="task-button"
+                    onclick="claimTask(${task.id}, '${task.link || ""}')">
+                    Claim +${Number(task.reward).toFixed(2)} RAKI
+                    </button>
+                    `
+                }
+            `;
+
+            taskList.appendChild(card);
+
+        });
+
+    }catch(error){
+
+        console.error(error);
+
+        taskList.innerHTML =
+        "<p>Task server connection failed ❌</p>";
+
+    }
+
+}
+
+
+async function claimTask(taskId, link){
+
+    if(!tgUser){
+        return;
+    }
+
+    // Open task link first
+    if(link){
+
+        try{
+            tg.openLink(link);
+        }catch(e){
+            window.open(link, "_blank");
+        }
+
+    }
+
+    const confirmed =
+    confirm(
+        "Task complete করার পরে OK চাপুন।\n\nReward claim করবেন?"
+    );
+
+    if(!confirmed){
+        return;
+    }
+
+    try{
+
+        const response =
+        await fetch(
+            API_URL +
+            "/api/tasks/claim",
+            {
+                method:"POST",
+
+                headers:{
+                    "Content-Type":
+                    "application/json"
+                },
+
+                body:JSON.stringify({
+
+                    user_id:
+                    tgUser.id,
+
+                    task_id:
+                    taskId
+
+                })
+            }
+        );
+
+        const data =
+        await response.json();
+
+        if(data.success){
+
+            balance.textContent =
+            Number(data.balance)
+            .toFixed(4) +
+            " RAKI";
+
+            tg.showPopup?.({
+
+                title:"Task Completed 🎉",
+
+                message:
+                "+" +
+                Number(data.reward).toFixed(2) +
+                " RAKI added!",
+
+                buttons:[
+                    {
+                        id:"ok",
+                        type:"ok"
+                    }
+                ]
+
+            });
+
+            loadTasks();
+
+        }else{
+
+            alert(
+                data.error ||
+                "Task claim failed"
+            );
+
+        }
+
+    }catch(error){
+
+        console.error(error);
+
+        alert(
+            "Server connection failed ❌"
+        );
+
+    }
+
+}
+
+
+// =========================
+// Task Navigation
+// =========================
+
+function openTasks(){
+
+    document.querySelector(
+        "main.content"
+    ).style.display = "none";
+
+    taskScreen.style.display =
+    "block";
+
+    loadTasks();
+
+}
+
+
+function openHome(){
+
+    taskScreen.style.display =
+    "none";
+
+    document.querySelector(
+        "main.content"
+    ).style.display = "block";
+
+}
+
+
+// Quick Tasks button
+document.querySelectorAll(
+    ".quick-item"
+)[1].addEventListener(
+    "click",
+    openTasks
+);
+
+
+// Bottom Tasks button
+document.querySelectorAll(
+    ".nav-item"
+)[1].addEventListener(
+    "click",
+    openTasks
+);
+
+
+// Bottom Home button
+document.querySelectorAll(
+    ".nav-item"
+)[0].addEventListener(
+    "click",
+    openHome
+);
 
 
 // =========================
