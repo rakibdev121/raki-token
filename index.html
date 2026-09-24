@@ -890,22 +890,50 @@ async function loadUser(){
     userId.textContent =
     tgUser.id;
 
-
     try{
 
-        // Check user
+        // =========================
+        // Check existing user
+        // =========================
 
         let response =
         await fetch(
             API_URL +
             "/api/user/" +
-            tgUser.id
+            tgUser.id +
+            "?t=" +
+            Date.now()
         );
 
-
-        // User doesn't exist
+        // =========================
+        // Create new user
+        // =========================
 
         if(response.status === 404){
+
+            const startParam =
+            tg.initDataUnsafe?.start_param || "";
+
+            let referrerId = null;
+
+            if(startParam.startsWith("ref_")){
+
+                const id =
+                Number(
+                    startParam.replace("ref_","")
+                );
+
+                if(
+                    Number.isInteger(id) &&
+                    id > 0 &&
+                    id !== Number(tgUser.id)
+                ){
+
+                    referrerId = id;
+
+                }
+
+            }
 
             response =
             await fetch(
@@ -920,12 +948,16 @@ async function loadUser(){
 
                     body:JSON.stringify({
 
-                        id:tgUser.id,
+                        id:
+                        tgUser.id,
 
                         username:
                         tgUser.username ||
                         tgUser.first_name ||
-                        "User"
+                        "User",
+
+                        referrer_id:
+                        referrerId
 
                     })
                 }
@@ -933,10 +965,30 @@ async function loadUser(){
 
         }
 
+        // =========================
+        // Read response
+        // =========================
 
         const data =
         await response.json();
 
+        console.log(
+            "User API:",
+            data
+        );
+
+        if(!response.ok){
+
+            status.textContent =
+            "Server error ❌";
+
+            console.error(
+                "User API error:",
+                data
+            );
+
+            return;
+        }
 
         if(data.user){
 
@@ -948,13 +1000,15 @@ async function loadUser(){
 
         }
 
-
         status.textContent =
         "Connected to Raki Token server ✅";
 
     }catch(error){
 
-        console.error(error);
+        console.error(
+            "Load user error:",
+            error
+        );
 
         status.textContent =
         "Server connection failed ❌";
