@@ -526,26 +526,21 @@ Start Mining
 
 
 
-<!-- =========================
-     TASK SCREEN
-========================= -->
 
+\n
 <section id="taskScreen" class="section" style="display:none;">
 
 <div class="section-title">
-<h3>🎁 Earn RAKI</h3>
+<h3>🎁 Tasks</h3>
 </div>
 
 <div id="taskList">
-
-<div style="text-align:center;padding:20px;">
 Loading tasks...
 </div>
 
-</div>
-
 </section>
-\n<div id="status" class="status">
+
+<div id="status" class="status">
 Connecting to Raki Token server...
 </div>
 
@@ -1054,14 +1049,102 @@ async function claimTask(taskId, link){
 }
 
 
+
 // =========================
-// Task Navigation
+// TASK SYSTEM
 // =========================
 
-function openTasks(){
+const taskScreen =
+document.getElementById("taskScreen");
+
+const taskList =
+document.getElementById("taskList");
+
+
+async function loadTasks(){
+
+    if(!tgUser){
+        return;
+    }
+
+    try{
+
+        const response = await fetch(
+            API_URL +
+            "/api/tasks/" +
+            tgUser.id
+        );
+
+        const data =
+        await response.json();
+
+        if(!data.success){
+
+            taskList.innerHTML =
+            "Task load failed ❌";
+
+            return;
+        }
+
+        taskList.innerHTML = "";
+
+        data.tasks.forEach(function(task){
+
+            const div =
+            document.createElement("div");
+
+            div.style.cssText =
+            "background:white;padding:15px;margin:10px 0;border-radius:15px;";
+
+            div.innerHTML =
+            "<h4>" +
+            task.title +
+            "</h4>" +
+
+            "<p>" +
+            (task.description || "") +
+            "</p>" +
+
+            "<b>+" +
+            Number(task.reward).toFixed(2) +
+            " RAKI</b>" +
+
+            "<br><br>" +
+
+            (
+                Number(task.claimed) === 1
+
+                ?
+
+                '<button disabled>✅ Claimed</button>'
+
+                :
+
+                '<button data-task-id="' +
+                task.id +
+                '">Claim</button>'
+            );
+
+            taskList.appendChild(div);
+
+        });
+
+    }catch(error){
+
+        console.error(error);
+
+        taskList.innerHTML =
+        "Task server error ❌";
+
+    }
+
+}
+
+
+function openTaskPage(){
 
     document.querySelector(
-        "main.content"
+        ".content"
     ).style.display = "none";
 
     taskScreen.style.display =
@@ -1072,43 +1155,28 @@ function openTasks(){
 }
 
 
-function openHome(){
+function closeTaskPage(){
 
     taskScreen.style.display =
     "none";
 
     document.querySelector(
-        "main.content"
+        ".content"
     ).style.display = "block";
 
 }
 
 
-// Quick Tasks button
 document.querySelectorAll(
     ".quick-item"
-)[1].addEventListener(
-    "click",
-    openTasks
-);
+)[1].onclick =
+openTaskPage;
 
 
-// Bottom Tasks button
 document.querySelectorAll(
     ".nav-item"
-)[1].addEventListener(
-    "click",
-    openTasks
-);
-
-
-// Bottom Home button
-document.querySelectorAll(
-    ".nav-item"
-)[0].addEventListener(
-    "click",
-    openHome
-);
+)[1].onclick =
+openTaskPage;
 
 
 // =========================
