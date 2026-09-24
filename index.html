@@ -879,7 +879,7 @@ async function loadUser(){
     if(!tgUser){
 
         status.textContent =
-        "Open this app from Telegram.";
+        "Telegram user পাওয়া যায়নি ❌";
 
         return;
     }
@@ -890,26 +890,32 @@ async function loadUser(){
     userId.textContent =
     tgUser.id;
 
+    status.textContent =
+    "Connecting to Raki Token server...";
+
     try{
 
-        // =========================
-        // Check existing user
-        // =========================
+        const url =
+        API_URL +
+        "/api/user/" +
+        tgUser.id +
+        "?t=" +
+        Date.now();
+
+        console.log("API:", url);
 
         let response =
-        await fetch(
-            API_URL +
-            "/api/user/" +
-            tgUser.id +
-            "?t=" +
-            Date.now()
+        await fetch(url);
+
+        console.log(
+            "User GET status:",
+            response.status
         );
 
-        // =========================
-        // Create new user
-        // =========================
-
         if(response.status === 404){
+
+            status.textContent =
+            "Creating account...";
 
             const startParam =
             tg.initDataUnsafe?.start_param || "";
@@ -963,29 +969,42 @@ async function loadUser(){
                 }
             );
 
+            console.log(
+                "User POST status:",
+                response.status
+            );
+
         }
 
-        // =========================
-        // Read response
-        // =========================
-
-        const data =
-        await response.json();
+        const text =
+        await response.text();
 
         console.log(
-            "User API:",
-            data
+            "Server response:",
+            text
         );
+
+        let data;
+
+        try{
+
+            data =
+            JSON.parse(text);
+
+        }catch(e){
+
+            status.textContent =
+            "Server returned invalid data ❌";
+
+            return;
+        }
 
         if(!response.ok){
 
             status.textContent =
-            "Server error ❌";
-
-            console.error(
-                "User API error:",
-                data
-            );
+            "Server error: " +
+            response.status +
+            " ❌";
 
             return;
         }
@@ -1006,12 +1025,13 @@ async function loadUser(){
     }catch(error){
 
         console.error(
-            "Load user error:",
+            "LOAD USER ERROR:",
             error
         );
 
         status.textContent =
-        "Server connection failed ❌";
+        "Connection failed ❌ " +
+        (error.message || "Unknown error");
 
     }
 
