@@ -1050,6 +1050,90 @@ async function claimTask(taskId, link){
 
 
 
+
+// =========================
+// TASK NAVIGATION
+// =========================
+
+const homeBalance =
+document.querySelector(".balance");
+
+const quickMenu =
+document.querySelector(".quick");
+
+const miningSection =
+document.querySelector(".content .section");
+
+const homeStatus =
+document.getElementById("status");
+
+
+function openTaskPage(){
+
+    // Hide Home items
+    homeBalance.style.display = "none";
+    quickMenu.style.display = "none";
+    miningSection.style.display = "none";
+    homeStatus.style.display = "none";
+
+    // Show Tasks
+    taskScreen.style.display = "block";
+
+    loadTasks();
+}
+
+
+function openHomePage(){
+
+    // Show Home items
+    homeBalance.style.display = "block";
+    quickMenu.style.display = "grid";
+    miningSection.style.display = "block";
+    homeStatus.style.display = "block";
+
+    // Hide Tasks
+    taskScreen.style.display = "none";
+}
+
+
+// Quick Tasks button
+const quickItems =
+document.querySelectorAll(".quick-item");
+
+if(quickItems.length > 1){
+
+    quickItems[1].addEventListener(
+        "click",
+        openTaskPage
+    );
+
+}
+
+
+// Bottom Tasks button
+const navItems =
+document.querySelectorAll(".nav-item");
+
+if(navItems.length > 1){
+
+    navItems[1].addEventListener(
+        "click",
+        openTaskPage
+    );
+
+}
+
+
+// Bottom Home button
+if(navItems.length > 0){
+
+    navItems[0].addEventListener(
+        "click",
+        openHomePage
+    );
+
+}
+
 // =========================
 // Mining Button
 // =========================
