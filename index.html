@@ -1556,6 +1556,24 @@ function openHomePage(){
 
 
 // =========================
+// Quick Tasks button
+const quickItems =
+document.querySelectorAll(".quick-item");
+
+if(quickItems.length > 1){
+
+    quickItems[1].addEventListener(
+        "click",
+        openTaskPage
+    );
+
+}
+
+
+// Bottom Tasks button
+const navItems =
+document.querySelectorAll(".nav-item");
+
 // Referral Navigation
 // =========================
 
@@ -1600,23 +1618,7 @@ if(navItems.length > 3){
 
 
 
-// Quick Tasks button
-const quickItems =
-document.querySelectorAll(".quick-item");
 
-if(quickItems.length > 1){
-
-    quickItems[1].addEventListener(
-        "click",
-        openTaskPage
-    );
-
-}
-
-
-// Bottom Tasks button
-const navItems =
-document.querySelectorAll(".nav-item");
 
 if(navItems.length > 1){
 
